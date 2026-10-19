@@ -8,10 +8,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Download MicUp source
+        run: |
+          git clone --depth 1 --branch v1.0.6 https://github.com/papergray/MicUp.git MicUp \
+            || git clone --depth 1 --branch 1.0.6 https://github.com/papergray/MicUp.git MicUp \
+            || git clone --depth 1 https://github.com/papergray/MicUp.git MicUp
+          cd MicUp && git log -1 --format='MicUp commit: %h %s' && git describe --tags --always
 
       - name: Apply formant-preserving pitch shifter patch
+        working-directory: MicUp
         run: |
           cat > /tmp/patch.b64 <<'EOF_PATCH'
           ZGlmZiAtcnVOIG1pY3VwL01pY1VwLTEuMC42L2FwcC9zcmMvbWFpbi9jcHAvQXVkaW9FbmdpbmUuY3BwIG1pY3VwX21vZC9hcHAv
@@ -282,7 +287,6 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -298,11 +302,13 @@ jobs:
           gradle-version: '8.6'
 
       - name: Generate Gradle Wrapper
+        working-directory: MicUp
         run: |
           gradle wrapper --gradle-version 8.6 --distribution-type bin
           chmod +x gradlew
 
       - name: Build debug APK
+        working-directory: MicUp
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/26.3.11579264
         run: ./gradlew assembleDebug --no-daemon
@@ -311,11 +317,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MicUp-formant-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: MicUp/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload build reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
-          path: app/build/reports/
+          path: MicUp/app/build/reports/
